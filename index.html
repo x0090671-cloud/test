@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会员周期策略配置台 (Vue版)</title>
+    <!-- 引入样式库 Element Plus -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css" />
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
+    <!-- 引入 Vue 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <!-- 引入 Element Plus 组件库 -->
+    <script src="https://cdn.jsdelivr.net/npm/element-plus/dist/index.full.js"></script>
+    <!-- 引入图标库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@element-plus/icons-vue"></script>
+
+    <style>
+        :root { --el-color-primary: #409EFF; }
+        body { font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        
+        /* 布局网格系统 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 140px repeat(4, 1fr); /* 标题列 + 4个时间段 */
+            gap: 15px;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        /* 顶部阶段标题 */
+        .stage-header {
+            text-align: center;
+            padding: 10px;
+            background: #f9fafc;
+            border-radius: 4px;
+            border-bottom: 2px solid #e4e7ed;
+        }
+        .stage-title { font-weight: bold; font-size: 16px; color: #303133; }
+        .stage-sub { font-size: 12px; color: #909399; margin-top: 4px; }
+
+        /* 左侧产品标题 */
+        .row-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #545c64;
+            color: #fff;
+            border-radius: 6px;
+            font-weight: bold;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            min-height: 80px;
+        }
+
+        /* 策略卡片 (Master View) */
+        .strategy-card {
+            background: #fff;
+            border: 1px solid #dcdfe6;
+            border-radius: 6px;
+            padding: 15px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 80px;
+        }
+        .strategy-card:hover {
+            border-color: #409EFF;
+            box-shadow: 0 4px 12px rgba(64,158,255,0.2);
+            transform: translateY(-2px);
+        }
+        /* 当有策略时的样式 */
+        .strategy-card.active {
+            background-color: #ecf5ff;
+            border-color: #b3d8ff;
+        }
+        .card-summary {
+            font-size: 14px;
+            font-weight: bold;
+            color: #303133;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .card-tags {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        /* 顶部图表容器 */
+        .chart-wrapper {
+            grid-column: 2 / -1;
+            height: 180px;
+            margin-bottom: 10px;
+        }
+
+        /* 辅助类 */
+        .empty-text { color: #c0c4cc; font-size: 12px; text-align: center; }
+        .btn-add { margin-top: 10px; width: 100%; border-style: dashed; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <h2 style="text-align: center; color: #303133;">会员全生命周期 - 策略配置看板</h2>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <el-tag type="warning">数据已启用本地存储，刷新页面不会丢失</el-tag>
+        <el-button size="small" type="danger" plain @click="resetData" style="margin-left: 10px;">重置所有数据</el-button>
+    </div>
+
+    <div class="grid-container">
+        <!-- 第一行：表头（留空左上角） -->
+        <div></div>
+        <div class="stage-header" v-for="stage in stages" :key="stage.key">
+            <div class="stage-title">{{ stage.name }}</div>
+            <div class="stage-sub">{{ stage.desc }}</div>
+        </div>
+
+        <!-- 第二行：ECharts 曲线图 -->
+        <div></div> <!-- 左侧占位 -->
+        <div class="chart-wrapper" id="chart-container"></div>
+
+        <!-- 数据行：循环渲染产品线和格子 -->
+        <template v-for="(product, pIndex) in products" :key="product.key">
+            <!-- 左侧产品名 -->
+            <div class="row-header">
+                <div v-html="product.name.replace('\n', '<br>')"></div>
+            </div>
+            
+            <!-- 右侧4个阶段的格子 -->
+            <div 
+                v-for="(stage, sIndex) in stages" 
+                :key="stage.key"
+                class="strategy-card"
+                :class="{ 'active': hasData(product.key, stage.key) }"
+                @click="openEditor(product, stage)"
+            >
+                <!-- 卡片内容 (Master View) -->
+                <div v-if="hasData(product.key, stage.key)">
+                    <div class="card-summary">{{ getCellData(product.key, stage.key).summary }}</div>
+                    <div class="card-tags">
+                        <el-tag size="small" effect="plain" type="success">
+                            {{ getCellData(product.key, stage.key).rules.length }} 个细分规则
+                        </el-tag>
+                    </div>
+                </div>
+                <div v-else class="empty-text">
+                    <el-icon><Plus /></el-icon> 点击配置
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- 侧边抽屉：编辑详情 (Detail View) -->
+    <el-drawer
+        v-model="drawerVisible"
+        :title="currentTitle"
+        size="45%"
+        :before-close="handleClose"
+    >
+        <div v-if="currentCell">
+            <!-- 1. 外层概要配置 -->
+            <el-divider content-position="left">外层展示 (Master)</el-divider>
+            <el-form label-width="100px">
+                <el-form-item label="策略概要">
+                    <el-input v-model="currentCell.summary" placeholder="例如：到期前7天发券"></el-input>
+                </el-form-item>
+            </el-form>
+
+            <!-- 2. 内层细分规则列表 -->
+            <el-divider content-position="left">细分人群规则 (Detail)</el-divider>
+            
+            <el-table :data="currentCell.rules" stripe style="width: 100%; border: 1px solid #ebeef5; border-radius:4px;">
+                <el-table-column prop="segment" label="人群细分" width="140">
+                    <template #default="scope">
+                        <el-input v-model="scope.row.segment" size="small" placeholder="如: 高活跃用户"></el-input>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="coupon" label="优惠券/动作">
+                    <template #default="scope">
+                        <el-input v-model="scope.row.coupon" size="small" placeholder="如: 10元券"></el-input>
+                    </template>
+                </el-table-column>
+                <el-table-column label="操作" width="80">
+                    <template #default="scope">
+                        <el-button type="danger" link @click="removeRule(scope.$index)">删除</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+
+            <el-button class="btn-add" type="primary" plain icon="Plus" @click="addRule">添加细分人群规则</el-button>
+            
+            <!-- 底部保存按钮 -->
+            <div style="margin-top: 40px; text-align: right;">
+                <el-button @click="drawerVisible = false">取消</el-button>
+                <el-button type="primary" @click="saveData">保存配置</el-button>
+            </div>
+        </div>
+    </el-drawer>
+</div>
+
+<script>
+const { createApp, ref, reactive, onMounted, computed } = Vue;
+const { ElMessage, ElMessageBox } = ElementPlus;
+
+const app = createApp({
+    setup() {
+        // --- 1. 静态配置数据 ---
+        const stages = [
+            { key: 'free', name: '免费用户', desc: '未付费/新客' },
+            { key: 'latent', name: '在约潜伏期', desc: '到期 T-30前' },
+            { key: 'peak', name: '续约高峰期', desc: '到期 T-30 ~ T+90' },
+            { key: 'churn', name: '断约流失用户', desc: '到期 T+90后' }
+        ];
+        
+        const products = [
+            { key: 'basic_month', name: '基础/标准\n连续包月' },
+            { key: 'basic_year', name: '基础/标准\n年卡' },
+            { key: 'adv_month', name: '高级/进阶\n连续包月' },
+            { key: 'adv_year', name: '高级/进阶\n年卡' }
+        ];
+
+        // --- 2. 核心状态数据 ---
+        // 结构: { "basic_month_free": { summary: "", rules: [] } }
+        const strategyData = ref({}); 
+        const drawerVisible = ref(false);
+        const currentEditKey = ref(''); // 当前正在编辑的 Key (productId_stageId)
+        
+        // 临时的编辑对象，用于双向绑定，不直接修改原始数据直到点击保存
+        const currentCell = ref({ summary: '', rules: [] });
+        const currentTitle = ref('');
+
+        // --- 3. 生命周期：加载数据 ---
+        onMounted(() => {
+            initChart();
+            loadFromStorage();
+        });
+
+        // --- 4. 方法逻辑 ---
+
+        // 从 LocalStorage 加载
+        const loadFromStorage = () => {
+            const saved = localStorage.getItem('crm_strategy_dashboard');
+            if (saved) {
+                strategyData.value = JSON.parse(saved);
+            } else {
+                // 如果没有数据，初始化一些默认演示数据
+                strategyData.value = {
+                    "basic_month_free": {
+                        summary: "29.8元首购价",
+                        rules: [{ segment: "全量用户", coupon: "首购特价SKU" }]
+                    },
+                    "basic_year_peak": {
+                        summary: "【到期前30天】",
+                        rules: [
+                            { segment: "高活跃", coupon: "70元券" },
+                            { segment: "低活跃", coupon: "100元券(A/B测)" }
+                        ]
+                    }
+                };
+            }
+        };
+
+        // 保存到 LocalStorage
+        const saveData = () => {
+            // 将编辑态的数据写回主数据
+            strategyData.value[currentEditKey.value] = JSON.parse(JSON.stringify(currentCell.value));
+            
+            // 持久化
+            localStorage.setItem('crm_strategy_dashboard', JSON.stringify(strategyData.value));
+            
+            ElMessage.success('策略已保存');
+            drawerVisible.value = false;
+        };
+
+        // 打开编辑器
+        const openEditor = (product, stage) => {
+            const key = `${product.key}_${stage.key}`;
+            currentEditKey.value = key;
+            currentTitle.value = `编辑策略: ${product.name.replace('\n','')} - ${stage.name}`;
+            
+            // 如果存在数据则深拷贝，否则初始化空对象
+            if (strategyData.value[key]) {
+                currentCell.value = JSON.parse(JSON.stringify(strategyData.value[key]));
+            } else {
+                currentCell.value = { summary: '', rules: [] };
+            }
+            
+            drawerVisible.value = true;
+        };
+
+        // 表格操作
+        const addRule = () => {
+            currentCell.value.rules.push({ segment: '', coupon: '' });
+        };
+        const removeRule = (index) => {
+            currentCell.value.rules.splice(index, 1);
+        };
+
+        // 辅助函数
+        const hasData = (pKey, sKey) => {
+            const key = `${pKey}_${sKey}`;
+            return strategyData.value[key] && strategyData.value[key].summary;
+        };
+        const getCellData = (pKey, sKey) => {
+            return strategyData.value[`${pKey}_${sKey}`];
+        };
+        
+        const resetData = () => {
+             ElMessageBox.confirm('确定要清空所有配置吗？此操作不可恢复。', '警告', {
+                confirmButtonText: '确定重置',
+                cancelButtonText: '取消',
+                type: 'warning',
+            }).then(() => {
+                localStorage.removeItem('crm_strategy_dashboard');
+                strategyData.value = {};
+                ElMessage.info('数据已重置');
+            });
+        };
+
+        // 初始化图表 (与之前相同)
+        const initChart = () => {
+            const chartDom = document.getElementById('chart-container');
+            const myChart = echarts.init(chartDom);
+            const option = {
+                grid: { top: 10, bottom: 0, left: 0, right: 0 },
+                xAxis: { show: false, type: 'category', boundaryGap: false, data: [1,2,3,4,5,6,7,8] },
+                yAxis: { show: false, type: 'value' },
+                series: [{
+                    data: [80, 20, 20, 25, 90, 30, 25, 20], // 模拟曲线
+                    type: 'line',
+                    smooth: true,
+                    symbol: 'none',
+                    lineStyle: { color: '#409EFF', width: 4 },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(64,158,255, 0.4)' },
+                            { offset: 1, color: 'rgba(64,158,255, 0)' }
+                        ])
+                    }
+                }]
+            };
+            myChart.setOption(option);
+            window.onresize = () => myChart.resize();
+        };
+
+        return {
+            stages, products,
+            drawerVisible, currentTitle, currentCell,
+            openEditor, saveData, addRule, removeRule,
+            hasData, getCellData, resetData
+        };
+    }
+});
+
+// 注册图标
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+    app.component(key, component)
+}
+
+app.use(ElementPlus);
+app.mount('#app');
+</script>
+
+</body>
+</html>
