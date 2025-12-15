@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>会员周期策略配置台 (静态发布版)</title>
+    <title>规则定价策略配置台 (静态发布版)</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css" />
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
@@ -50,7 +50,7 @@
 
 <div id="app">
     <div class="top-bar">
-        <h2 style="margin:0; color: #303133;">会员周期策略看板 (发布版)</h2>
+        <h2 style="margin:0; color: #303133;">规则定价策略看板 (发布版)</h2>
         <div>
             <!-- 核心功能按钮 -->
             <el-button type="success" @click="exportDataCode" icon="DocumentCopy">
@@ -185,14 +185,19 @@ const HARDCODED_DATA = {
     },
     "adv_year_free": {
         "summary": "699元首购价（优惠券）",
-        "rules": []
+        "rules": [
+            {
+                "segment": "未购买过高级年卡与专业版的活跃人群",
+                "coupon": "300元优惠券"
+            }
+        ]
     },
     "basic_year_latent": {
         "summary": "健康度测试发券中",
         "rules": [
             {
                 "segment": "在约后~到期前T-30",
-                "coupon": "基于不同健康度，作高级年卡50~100元发券&促活引导"
+                "coupon": "基于不同健康度，作高级年卡50~100元发券&促活引导：https://cf.qunhequnhe.com/pages/viewpage.action?pageId=81347219703"
             }
         ]
     },
@@ -201,7 +206,7 @@ const HARDCODED_DATA = {
         "rules": [
             {
                 "segment": "到期T-30~T+90",
-                "coupon": "基于不同健康度，作基础年卡70~130元发券&促活引导"
+                "coupon": "基于不同健康度，作基础年卡70~130元发券&促活引导：https://cf.qunhequnhe.com/pages/viewpage.action?pageId=81347219703"
             }
         ]
     },
@@ -210,11 +215,11 @@ const HARDCODED_DATA = {
         "rules": [
             {
                 "segment": "到期后T+90",
-                "coupon": "基于不同健康度，作基础年卡130元&促活引导"
+                "coupon": "基于不同健康度，作基础年卡130元&促活引导：https://cf.qunhequnhe.com/pages/viewpage.action?pageId=81347219703"
             },
             {
                 "segment": "到期后T+90",
-                "coupon": "基于不同健康度，基础包月11元发券&促活引导"
+                "coupon": "基于不同健康度，基础包月11元发券&促活引导：https://cf.qunhequnhe.com/pages/viewpage.action?pageId=81347219703"
             }
         ]
     },
